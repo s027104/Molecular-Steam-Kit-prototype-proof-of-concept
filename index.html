@@ -31,21 +31,20 @@
             margin-top: 20px;
         }
 
-        /* Webcam Area */
+        /* The Webcam Area - Mobile Responsive */
         #webcam-container {
             border: 5px solid var(--primary);
             border-radius: 10px;
             overflow: hidden;
             width: 300px;
             height: 300px;
-            max-width: 100%;
+            max-width: 100%; /* Prevents cut-off on small screens */
             background: #000;
-            position: relative;
         }
 
         canvas { width: 100%; height: 100%; object-fit: cover; }
 
-        /* Results Area */
+        /* The Results Area */
         .result-card {
             background: white;
             padding: 20px;
@@ -84,10 +83,11 @@
             font-weight: bold;
             color: #bdc3c7;
             font-size: 1.2em;
-            white-space: pre-line;
+            white-space: pre-line; /* Allows line breaks in diagrams */
             text-align: center;
         }
         
+        /* Simple bar graph for confidence */
         #confidence-bar {
             height: 10px;
             background-color: var(--accent);
@@ -116,8 +116,8 @@
 </head>
 <body>
 
-    <h1>🧪 Molecular Kit AI</h1>
-    <p>Build your compound, point the camera, and let AI identify it.</p>
+    <h1>🧪 Molecular Kit AI Assistant</h1>
+    <p>Build your compound, show it to the camera, and let AI identify it.</p>
 
     <button type="button" onclick="init()">Start Camera</button>
 
@@ -133,11 +133,11 @@
             </div>
 
             <div class="diagram-box" id="diagram-display">
-                [ Diagram ]
+                [ Diagram will appear here ]
             </div>
 
             <div id="fact-display">
-                Tap "Start Camera" and point at your model.
+                Press "Start Camera" to begin identification.
             </div>
         </div>
     </div>
@@ -151,30 +151,26 @@
         const URL = "https://teachablemachine.withgoogle.com/models/Rgrd6fH9I/";
         // ---------------------------------------------------------
 
-        let model, webcam, maxPredictions;
-        let lastPredictionTime = 0;
+        let model, webcam, labelContainer, maxPredictions;
+        let lastPredictionTime = 0; // Needed for Anti-Freeze logic
 
-        // Visual Data
+        // Visual Data for your Oxygen Prototype
         const chemicalData = {
             "Background": { 
-                diagram: "Waiting...", 
-                fact: "Place a model in clear view." 
+                diagram: "Waiting for object...", 
+                fact: "Place a model in front of the camera." 
             },
             "Oxygen Atom": { 
                 diagram: "🔴\n(O)", 
-                fact: "A single Oxygen atom. Highly reactive." 
+                fact: "A single Oxygen atom. Highly reactive and rarely found alone on Earth." 
             },
             "Oxygen Gas (O2)": { 
                 diagram: "🔴=🔴\n(O=O)", 
-                fact: "Oxygen Gas. This is what we breathe!" 
+                fact: "Oxygen Gas. This is what we breathe! It makes up 21% of Earth's atmosphere." 
             },
             "Ozone (O3)": { 
                 diagram: "🔴-🔴=🔴", 
-                fact: "Ozone. Protects us from UV radiation." 
-            },
-            "Tetraoxygen (O4)": {
-                diagram: "  🔴-🔴\n  |     |\n  🔴-🔴", 
-                fact: "Tetraoxygen. A rare, unstable form of oxygen!"
+                fact: "Ozone. Found in the upper atmosphere, it protects us from UV radiation." 
             }
         };
 
@@ -182,19 +178,21 @@
             const modelURL = URL + "model.json";
             const metadataURL = URL + "metadata.json";
 
+            // Load the model
             model = await tmImage.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            const flip = false; // No mirror for back camera
+            // Setup Webcam (MOBILE CONFIGURATION)
+            const flip = false; // Disable mirroring for back camera
             const width = 300;
             const height = 300;
-
+            
             webcam = new tmImage.Webcam(width, height, flip); 
             
-            // Setup with environment camera
+            // This enables the back camera ("environment")
             await webcam.setup({ facingMode: "environment" }); 
 
-            // FIX 1: FORCE IOS TO PLAY VIDEO INLINE (Prevents freezing)
+            // IMPORTANT: iOS Fix to prevent freezing
             if (webcam.webcam) {
                 webcam.webcam.setAttribute('playsinline', 'true');
                 webcam.webcam.setAttribute('muted', 'true');
@@ -203,19 +201,18 @@
             await webcam.play();
             window.requestAnimationFrame(loop);
 
-            // Clear previous canvas if any
+            // Append webcam to the HTML
             const container = document.getElementById("webcam-container");
-            container.innerHTML = "";
+            container.innerHTML = ""; // Clear existing content
             container.appendChild(webcam.canvas);
         }
 
         async function loop(timestamp) {
-            // FIX 2: Always update the video picture
-            webcam.update(); 
-            
-            // FIX 3: THROTTLE THE AI (Only run AI every 500ms)
-            // This frees up the phone processor to draw the video screen
-            if (timestamp - lastPredictionTime > 500) {
+            webcam.update(); // Always update the video frame
+
+            // THROTTLE: Only run AI prediction every 100ms
+            // This prevents the "stuck frame" issue on mobile
+            if (timestamp - lastPredictionTime > 100) {
                 await predict();
                 lastPredictionTime = timestamp;
             }
@@ -223,10 +220,11 @@
             window.requestAnimationFrame(loop);
         }
 
+        // Run the AI image classification
         async function predict() {
-            // Prediction logic
             const prediction = await model.predict(webcam.canvas);
 
+            // Find the class with the highest probability
             let highestProb = 0;
             let bestClass = "";
 
@@ -237,15 +235,20 @@
                 }
             }
 
+            // Only update UI if we are fairly confident (>80%)
             if (highestProb > 0.8) {
                 updateUI(bestClass, highestProb);
             }
         }
 
         function updateUI(className, probability) {
+            // Update Text
             document.getElementById("prediction-label").innerText = className;
+            
+            // Update Confidence Bar
             document.getElementById("confidence-bar").style.width = (probability * 100) + "%";
 
+            // Update Diagram and Facts based on our data object
             if (chemicalData[className]) {
                 document.getElementById("diagram-display").innerText = chemicalData[className].diagram;
                 document.getElementById("fact-display").innerText = chemicalData[className].fact;
