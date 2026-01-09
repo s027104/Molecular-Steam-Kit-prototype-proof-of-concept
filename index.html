@@ -145,7 +145,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
     <script type="text/javascript">
-        console.log("Updated3");
+        console.log("Updated");
         // ---------------------------------------------------------
         // PASTE YOUR TEACHABLE MACHINE LINK HERE:
         const URL = "https://teachablemachine.withgoogle.com/models/Rgrd6fH9I/";
@@ -157,7 +157,7 @@
         // --- AGGRESSIVE BIAS SETTINGS ---
         // This makes it extremely hard to accidentally trigger Ozone.
         const BIAS = {
-            "Ozone (O3)": 0.8 // Huge Penalty (Only 30% of original score)
+            "Ozone (O3)": 1 // Huge Penalty (Only 30% of original score)
         };
         // --------------------------------
 
