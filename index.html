@@ -145,6 +145,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
     <script type="text/javascript">
+        console.log("Updated");
         // ---------------------------------------------------------
         // PASTE YOUR TEACHABLE MACHINE LINK HERE:
         const URL = "https://teachablemachine.withgoogle.com/models/Rgrd6fH9I/";
@@ -153,13 +154,13 @@
         let model, webcam, maxPredictions;
         let lastPredictionTime = 0;
 
-        // --- MANUAL BIAS SETTINGS (The Fix) ---
-        // We boost O2 and punish O3 to stop the confusion.
+        // --- AGGRESSIVE BIAS SETTINGS ---
+        // This makes it extremely hard to accidentally trigger Ozone.
         const BIAS = {
-            "Oxygen Gas (O2)": 1.3,  // Boost O2 score by 30%
-            "Ozone (O3)": 0.7        // Reduce O3 score by 30%
+            "Oxygen Gas (O2)": 2.5,  // Huge Boost (250%)
+            "Ozone (O3)": 0.3        // Huge Penalty (Only 30% of original score)
         };
-        // --------------------------------------
+        // --------------------------------
 
         const chemicalData = {
             "Background": { 
@@ -187,13 +188,12 @@
             model = await tmImage.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            // Mobile Camera Config
             const flip = false; 
             const width = 300;
             const height = 300;
 
             webcam = new tmImage.Webcam(width, height, flip); 
-            await webcam.setup({ facingMode: "environment" }); // Back Camera
+            await webcam.setup({ facingMode: "environment" }); 
 
             if (webcam.webcam) {
                 webcam.webcam.setAttribute('playsinline', 'true');
@@ -211,7 +211,6 @@
         async function loop(timestamp) {
             webcam.update(); 
             
-            // Throttle slightly to save battery
             if (timestamp - lastPredictionTime > 100) {
                 await predict();
                 lastPredictionTime = timestamp;
@@ -230,11 +229,11 @@
                 let className = prediction[i].className;
                 let probability = prediction[i].probability;
 
-                // --- APPLY BIAS MATH ---
+                // --- APPLY AGGRESSIVE BIAS ---
                 if (BIAS[className]) {
                     probability = probability * BIAS[className];
                 }
-                // -----------------------
+                // -----------------------------
 
                 if (probability > highestProb) {
                     highestProb = probability;
@@ -242,14 +241,12 @@
                 }
             }
 
-            // Threshold Check (0.8)
             if (highestProb > 0.8) {
                 updateUI(bestClass, highestProb);
             }
         }
 
         function updateUI(className, probability) {
-            // Cap probability at 100% for the visual bar (in case math pushed it over)
             let visualProb = probability > 1 ? 1 : probability;
 
             document.getElementById("prediction-label").innerText = className;
