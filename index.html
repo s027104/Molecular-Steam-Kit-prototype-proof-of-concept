@@ -157,7 +157,7 @@
         // --- AGGRESSIVE BIAS SETTINGS ---
         // This makes it extremely hard to accidentally trigger Ozone.
         const BIAS = {
-            "Ozone (O3)": 0.75        // Huge Penalty (Only 30% of original score)
+            "Ozone (O3)": 0.8 // Huge Penalty (Only 30% of original score)
         };
         // --------------------------------
 
@@ -210,7 +210,8 @@
         async function loop(timestamp) {
             webcam.update(); 
             
-            if (timestamp - lastPredictionTime > 100) {
+            // CHANGED HERE: Now checks every 500ms (0.5 seconds)
+            if (timestamp - lastPredictionTime > 500) {
                 await predict();
                 lastPredictionTime = timestamp;
             }
