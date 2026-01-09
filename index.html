@@ -17,10 +17,11 @@
             text-align: center;
             padding: 20px;
             color: var(--primary);
+            margin: 0; /* Remove default margin for mobile */
         }
 
-        h1 { margin-bottom: 10px; }
-        p { color: #7f8c8d; }
+        h1 { margin-bottom: 10px; font-size: 1.8em; }
+        p { color: #7f8c8d; font-size: 0.9em; }
 
         .container {
             display: flex;
@@ -30,14 +31,16 @@
             margin-top: 20px;
         }
 
-        /* The Webcam Area */
+        /* The Webcam Area - Mobile Responsive */
         #webcam-container {
             border: 5px solid var(--primary);
             border-radius: 10px;
             overflow: hidden;
             width: 300px;
             height: 300px;
+            max-width: 100%; /* Prevents overflow on small screens */
             background: #000;
+            position: relative;
         }
 
         canvas { width: 100%; height: 100%; object-fit: cover; }
@@ -48,6 +51,7 @@
             padding: 20px;
             border-radius: 10px;
             width: 300px;
+            max-width: 90%; /* Responsive width */
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             text-align: left;
         }
@@ -79,6 +83,7 @@
             justify-content: center;
             font-weight: bold;
             color: #bdc3c7;
+            font-size: 1.2em; /* Larger diagram text */
         }
         
         /* Simple bar graph for confidence */
@@ -100,6 +105,8 @@
             cursor: pointer;
             margin-bottom: 20px;
             transition: transform 0.1s;
+            width: 80%; /* Easy to tap on mobile */
+            max-width: 300px;
         }
 
         button:active { transform: scale(0.95); }
@@ -108,8 +115,8 @@
 </head>
 <body>
 
-    <h1>🧪 Molecular Kit AI Assistant</h1>
-    <p>Build your compound, show it to the camera, and let AI identify it.</p>
+    <h1>🧪 Molecular Kit AI</h1>
+    <p>Build your compound, point the camera, and let AI identify it.</p>
 
     <button type="button" onclick="init()">Start Camera</button>
 
@@ -125,11 +132,11 @@
             </div>
 
             <div class="diagram-box" id="diagram-display">
-                [ Diagram will appear here ]
+                [ Diagram ]
             </div>
 
             <div id="fact-display">
-                Press "Start Camera" to begin identification.
+                Tap "Start Camera" and point at your model.
             </div>
         </div>
     </div>
@@ -138,30 +145,31 @@
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
     <script type="text/javascript">
+        console.log("Changes committed");
         // ---------------------------------------------------------
         // PASTE YOUR TEACHABLE MACHINE LINK HERE:
         const URL = "https://teachablemachine.withgoogle.com/models/Rgrd6fH9I/";
         // ---------------------------------------------------------
 
-        let model, webcam, labelContainer, maxPredictions;
+        let model, webcam, maxPredictions;
 
-        // Visual Data for your Oxygen Prototype
+        // Visual Data
         const chemicalData = {
             "Background": { 
-                diagram: "Waiting for object...", 
-                fact: "Place a model in front of the camera." 
+                diagram: "Waiting...", 
+                fact: "Place a model in clear view." 
             },
             "Oxygen Atom": { 
-                diagram: "🔵 (O)", 
-                fact: "A single Oxygen atom. Highly reactive and rarely found alone on Earth." 
+                diagram: "🔴 (O)", 
+                fact: "A single Oxygen atom. Highly reactive." 
             },
             "Oxygen Gas (O2)": { 
-                diagram: "🔵=🔵 (O=O)", 
-                fact: "Oxygen Gas. This is what we breathe! It makes up 21% of Earth's atmosphere." 
+                diagram: "🔴=🔴 (O=O)", 
+                fact: "Oxygen Gas. This is what we breathe!" 
             },
             "Ozone (O3)": { 
-                diagram: "🔵-🔵=🔵", 
-                fact: "Ozone. Found in the upper atmosphere, it protects us from UV radiation." 
+                diagram: "🔴-🔴=🔴", 
+                fact: "Ozone. Protects us from UV radiation." 
             }
         };
 
@@ -169,32 +177,36 @@
             const modelURL = URL + "model.json";
             const metadataURL = URL + "metadata.json";
 
-            // Load the model
             model = await tmImage.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            // Setup Webcam
-            const flip = true; 
-            webcam = new tmImage.Webcam(300, 300, flip); 
-            await webcam.setup(); 
+            // --- MOBILE CAMERA SETUP ---
+            const flip = false; // set to false for back camera (so text isn't mirrored)
+            const width = 300;
+            const height = 300;
+
+            webcam = new tmImage.Webcam(width, height, flip); 
+            
+            // This line requests the 'environment' (back) camera specifically
+            await webcam.setup({ facingMode: "environment" }); 
+            
+            // ---------------------------
+
             await webcam.play();
             window.requestAnimationFrame(loop);
 
-            // Append webcam to the HTML
             document.getElementById("webcam-container").appendChild(webcam.canvas);
         }
 
         async function loop() {
-            webcam.update(); // update the webcam frame
+            webcam.update(); 
             await predict();
             window.requestAnimationFrame(loop);
         }
 
-        // Run the AI image classification
         async function predict() {
             const prediction = await model.predict(webcam.canvas);
 
-            // Find the class with the highest probability
             let highestProb = 0;
             let bestClass = "";
 
@@ -205,20 +217,15 @@
                 }
             }
 
-            // Only update UI if we are fairly confident (>80%)
             if (highestProb > 0.8) {
                 updateUI(bestClass, highestProb);
             }
         }
 
         function updateUI(className, probability) {
-            // Update Text
             document.getElementById("prediction-label").innerText = className;
-            
-            // Update Confidence Bar
             document.getElementById("confidence-bar").style.width = (probability * 100) + "%";
 
-            // Update Diagram and Facts based on our data object
             if (chemicalData[className]) {
                 document.getElementById("diagram-display").innerText = chemicalData[className].diagram;
                 document.getElementById("fact-display").innerText = chemicalData[className].fact;
