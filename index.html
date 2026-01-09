@@ -17,7 +17,7 @@
             text-align: center;
             padding: 20px;
             color: var(--primary);
-            margin: 0; /* Remove default margin for mobile */
+            margin: 0;
         }
 
         h1 { margin-bottom: 10px; font-size: 1.8em; }
@@ -31,27 +31,27 @@
             margin-top: 20px;
         }
 
-        /* The Webcam Area - Mobile Responsive */
+        /* Webcam Area */
         #webcam-container {
             border: 5px solid var(--primary);
             border-radius: 10px;
             overflow: hidden;
             width: 300px;
             height: 300px;
-            max-width: 100%; /* Prevents overflow on small screens */
+            max-width: 100%;
             background: #000;
             position: relative;
         }
 
         canvas { width: 100%; height: 100%; object-fit: cover; }
 
-        /* The Results Area */
+        /* Results Area */
         .result-card {
             background: white;
             padding: 20px;
             border-radius: 10px;
             width: 300px;
-            max-width: 90%; /* Responsive width */
+            max-width: 90%;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             text-align: left;
         }
@@ -83,10 +83,11 @@
             justify-content: center;
             font-weight: bold;
             color: #bdc3c7;
-            font-size: 1.2em; /* Larger diagram text */
+            font-size: 1.2em;
+            white-space: pre-line;
+            text-align: center;
         }
         
-        /* Simple bar graph for confidence */
         #confidence-bar {
             height: 10px;
             background-color: var(--accent);
@@ -105,7 +106,7 @@
             cursor: pointer;
             margin-bottom: 20px;
             transition: transform 0.1s;
-            width: 80%; /* Easy to tap on mobile */
+            width: 80%;
             max-width: 300px;
         }
 
@@ -145,13 +146,13 @@
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
 
     <script type="text/javascript">
-        console.log("Changes committed");
         // ---------------------------------------------------------
         // PASTE YOUR TEACHABLE MACHINE LINK HERE:
         const URL = "https://teachablemachine.withgoogle.com/models/Rgrd6fH9I/";
         // ---------------------------------------------------------
 
         let model, webcam, maxPredictions;
+        let lastPredictionTime = 0;
 
         // Visual Data
         const chemicalData = {
@@ -160,16 +161,20 @@
                 fact: "Place a model in clear view." 
             },
             "Oxygen Atom": { 
-                diagram: "🔴 (O)", 
+                diagram: "🔴\n(O)", 
                 fact: "A single Oxygen atom. Highly reactive." 
             },
             "Oxygen Gas (O2)": { 
-                diagram: "🔴=🔴 (O=O)", 
+                diagram: "🔴=🔴\n(O=O)", 
                 fact: "Oxygen Gas. This is what we breathe!" 
             },
             "Ozone (O3)": { 
                 diagram: "🔴-🔴=🔴", 
                 fact: "Ozone. Protects us from UV radiation." 
+            },
+            "Tetraoxygen (O4)": {
+                diagram: "  🔴-🔴\n  |     |\n  🔴-🔴", 
+                fact: "Tetraoxygen. A rare, unstable form of oxygen!"
             }
         };
 
@@ -180,31 +185,46 @@
             model = await tmImage.load(modelURL, metadataURL);
             maxPredictions = model.getTotalClasses();
 
-            // --- MOBILE CAMERA SETUP ---
-            const flip = false; // set to false for back camera (so text isn't mirrored)
+            const flip = false; // No mirror for back camera
             const width = 300;
             const height = 300;
 
             webcam = new tmImage.Webcam(width, height, flip); 
             
-            // This line requests the 'environment' (back) camera specifically
+            // Setup with environment camera
             await webcam.setup({ facingMode: "environment" }); 
-            
-            // ---------------------------
+
+            // FIX 1: FORCE IOS TO PLAY VIDEO INLINE (Prevents freezing)
+            if (webcam.webcam) {
+                webcam.webcam.setAttribute('playsinline', 'true');
+                webcam.webcam.setAttribute('muted', 'true');
+            }
 
             await webcam.play();
             window.requestAnimationFrame(loop);
 
-            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            // Clear previous canvas if any
+            const container = document.getElementById("webcam-container");
+            container.innerHTML = "";
+            container.appendChild(webcam.canvas);
         }
 
-        async function loop() {
+        async function loop(timestamp) {
+            // FIX 2: Always update the video picture
             webcam.update(); 
-            await predict();
+            
+            // FIX 3: THROTTLE THE AI (Only run AI every 500ms)
+            // This frees up the phone processor to draw the video screen
+            if (timestamp - lastPredictionTime > 500) {
+                await predict();
+                lastPredictionTime = timestamp;
+            }
+
             window.requestAnimationFrame(loop);
         }
 
         async function predict() {
+            // Prediction logic
             const prediction = await model.predict(webcam.canvas);
 
             let highestProb = 0;
